@@ -7,10 +7,7 @@
   <meta name="theme-color" content="#2f3e2e" />
 
   <!-- Leaflet -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
@@ -54,9 +51,7 @@
       height: calc(100vh - 64px);
     }
 
-    #map {
-      flex: 1;
-    }
+    #map { flex: 1; }
 
     #feed {
       width: 360px;
@@ -135,13 +130,8 @@
     }
 
     @media (max-width: 768px) {
-      #layout {
-        flex-direction: column;
-      }
-      #feed {
-        width: 100%;
-        height: 40%;
-      }
+      #layout { flex-direction: column; }
+      #feed { width: 100%; height: 40%; }
     }
   </style>
 </head>
@@ -180,51 +170,10 @@ window.addEventListener('beforeinstallprompt', e => {
   installBtn.style.display = 'block';
 });
 
-installBtn.onclick = async () => {
+installBtn.onclick = () => {
   installBtn.style.display = 'none';
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    deferredPrompt = null;
-  }
+  deferredPrompt && deferredPrompt.prompt();
 };
-
-const manifest = {
-  name: "SCOUT — Just Off I-80",
-  short_name: "SCOUT",
-  start_url: ".",
-  display: "standalone",
-  background_color: "#2f3e2e",
-  theme_color: "#2f3e2e",
-  icons: [{
-    src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%232f3e2e'/></svg>",
-    sizes: "192x192",
-    type: "image/svg+xml"
-  }]
-};
-
-const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-const manifestURL = URL.createObjectURL(manifestBlob);
-const link = document.createElement('link');
-link.rel = 'manifest';
-link.href = manifestURL;
-document.head.appendChild(link);
-
-const swCode = `
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open('scout-cache').then(c =>
-      c.addAll(['./'])
-    )
-  );
-});
-self.addEventListener('fetch', e => {
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
-  );
-});
-`;
-const swBlob = new Blob([swCode], { type: 'text/javascript' });
-navigator.serviceWorker.register(URL.createObjectURL(swBlob));
 
 /* ---------------- MAP + POSTS ---------------- */
 
@@ -234,17 +183,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 const posts = JSON.parse(localStorage.getItem('scoutPosts') || '[]');
-
-function milesBetween(a, b) {
-  const R = 3958.8;
-  const dLat = (b.lat - a.lat) * Math.PI/180;
-  const dLon = (b.lng - a.lng) * Math.PI/180;
-  const lat1 = a.lat * Math.PI/180;
-  const lat2 = b.lat * Math.PI/180;
-  const x = Math.sin(dLat/2)**2 +
-            Math.sin(dLon/2)**2 * Math.cos(lat1) * Math.cos(lat2);
-  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
-}
 
 function timeAgo(ts) {
   const s = Math.floor((Date.now() - ts)/1000);
@@ -257,16 +195,22 @@ function timeAgo(ts) {
   return 'just now';
 }
 
-navigator.geolocation.getCurrentPosition(pos => {
-  const user = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+navigator.geolocation.getCurrentPosition(() => {
+
+  if (posts.length === 0) return;
+
+  const newest = posts.reduce((a, b) => a.time > b.time ? a : b);
+  const pulseAllowed = (Date.now() - newest.time) < 86400000;
 
   posts.forEach(p => {
-    const age = Date.now() - p.time < 86400000;
     const marker = L.circleMarker([p.lat, p.lng], {
       radius: 8,
-      color: age ? '#7a9f79' : '#555'
+      color: p === newest ? '#7a9f79' : '#555'
     }).addTo(map);
-    if (age) marker._path.classList.add('pulse');
+
+    if (p === newest && pulseAllowed) {
+      marker._path.classList.add('pulse');
+    }
   });
 
   renderFeed();
