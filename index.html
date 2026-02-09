@@ -2,160 +2,309 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SCOUT™ - Just Off I-80</title>
-  <link rel="manifest" href="manifest.json" />
+  <title>SCOUT — Just Off I-80</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2f3e2e" />
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
-    header { background: #2b2b2b; color: white; padding: 1rem; text-align: center; font-size: 1.5rem; }
-    nav { display: flex; flex-wrap: wrap; background: #444; }
-    nav button {
-      flex: 1; padding: 1rem; border: none; background: #444; color: white; cursor: pointer;
+    :root {
+      --bg: #f6f5f2;
+      --green: #2f3e2e;
+      --accent: #7a9f79;
+      --card: #ffffff;
     }
-    nav button.active { background: #2b2b2b; font-weight: bold; }
-    #map { height: 300px; }
-    main { padding: 1rem; }
-    .post { background: white; padding: 1rem; margin: 1rem 0; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .toast { position: fixed; bottom: 1rem; right: 1rem; background: #2b2b2b; color: white; padding: 0.75rem 1rem; border-radius: 5px; display: none; }
-    .pulse-marker {
-      width: 20px; height: 20px;
-      background: rgba(0, 200, 0, 0.8);
-      border-radius: 50%;
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: #222;
+    }
+
+    header {
+      background: var(--green);
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      position: relative;
+    }
+
+    #installBtn {
+      position: absolute;
+      right: 1rem;
+      top: 1rem;
+      background: var(--accent);
+      border: none;
+      color: white;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: none;
+    }
+
+    #layout {
+      display: flex;
+      height: calc(100vh - 64px);
+    }
+
+    #map {
+      flex: 1;
+    }
+
+    #feed {
+      width: 360px;
+      max-width: 100%;
+      overflow-y: auto;
+      background: #eee;
+      padding: 0.75rem;
+    }
+
+    .post {
+      background: var(--card);
+      border-radius: 8px;
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .time {
+      font-size: 0.75rem;
+      color: #666;
+      margin-top: 0.25rem;
+    }
+
+    .pulse {
       animation: pulse 1.5s infinite;
-      border: 2px solid white;
     }
+
     @keyframes pulse {
       0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.5); opacity: 0.6; }
+      50% { transform: scale(1.4); opacity: 0.6; }
       100% { transform: scale(1); opacity: 1; }
     }
+
+    #scout {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      width: 260px;
+      background: var(--card);
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+
+    #scoutHeader {
+      background: var(--green);
+      color: white;
+      padding: 0.5rem;
+      font-weight: bold;
+    }
+
+    #scoutLog {
+      padding: 0.5rem;
+      font-size: 0.85rem;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    #scoutInput {
+      display: flex;
+      border-top: 1px solid #ccc;
+    }
+
+    #scoutInput input {
+      flex: 1;
+      border: none;
+      padding: 0.5rem;
+    }
+
+    #scoutInput button {
+      border: none;
+      background: var(--accent);
+      color: white;
+      padding: 0 0.75rem;
+      cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+      #layout {
+        flex-direction: column;
+      }
+      #feed {
+        width: 100%;
+        height: 40%;
+      }
+    }
   </style>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
 </head>
 <body>
-  <header>SCOUT™ – Just Off I-80</header>
-  <nav>
-    <button class="tab active" data-tab="home">Home</button>
-    <button class="tab" data-tab="eat">Eat & Drink</button>
-    <button class="tab" data-tab="trails">Trails & Parks</button>
-    <button class="tab" data-tab="arts">Arts & Culture</button>
-    <button class="tab" data-tab="services">Community Services</button>
-    <button class="tab" data-tab="authors">Local Authors</button>
-  </nav>
 
+<header>
+  SCOUT — Just Off I-80
+  <button id="installBtn">Install</button>
+</header>
+
+<div id="layout">
   <div id="map"></div>
+  <div id="feed"></div>
+</div>
 
-  <main>
-    <form id="postForm">
-      <h3>Share Something</h3>
-      <input type="text" id="org" placeholder="Name of place/org" required />
-      <input type="text" id="message" placeholder="What’s happening?" required />
-      <select id="category">
-        <option value="eat">Eat & Drink</option>
-        <option value="trails">Trails & Parks</option>
-        <option value="arts">Arts & Culture</option>
-        <option value="services">Community Services</option>
-        <option value="authors">Local Authors</option>
-      </select>
-      <button type="submit">Post</button>
-    </form>
+<div id="scout">
+  <div id="scoutHeader">SCOUT</div>
+  <div id="scoutLog">
+    <div>👋 Looking for something nearby or a good day trip?</div>
+  </div>
+  <div id="scoutInput">
+    <input id="scoutText" placeholder="Ask SCOUT…" />
+    <button onclick="askScout()">➤</button>
+  </div>
+</div>
 
-    <section id="posts"></section>
-  </main>
+<script>
+/* ---------------- PWA ---------------- */
 
-  <div class="toast" id="toast">Post submitted!</div>
+let deferredPrompt;
+const installBtn = document.getElementById('installBtn');
 
-  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-  <script>
-    const map = L.map('map').setView([41.117, -78.761], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.style.display = 'block';
+});
 
-    const listings = [
-      {
-        name: "Station Café",
-        lat: 41.1173,
-        lng: -78.7615,
-        category: "eat",
-        message: "Trout melt + live music tonight!",
-        timestamp: new Date().toISOString()
-      },
-      {
-        name: "DuBois Trailhead",
-        lat: 41.12,
-        lng: -78.75,
-        category: "trails",
-        message: "Sunrise hike this weekend!",
-        timestamp: new Date(Date.now() - 86400000 * 2).toISOString() // 2 days ago
-      }
-    ];
+installBtn.onclick = async () => {
+  installBtn.style.display = 'none';
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt = null;
+  }
+};
 
-    const posts = [...listings];
+const manifest = {
+  name: "SCOUT — Just Off I-80",
+  short_name: "SCOUT",
+  start_url: ".",
+  display: "standalone",
+  background_color: "#2f3e2e",
+  theme_color: "#2f3e2e",
+  icons: [{
+    src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%232f3e2e'/></svg>",
+    sizes: "192x192",
+    type: "image/svg+xml"
+  }]
+};
 
-    const toast = document.getElementById("toast");
+const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+const manifestURL = URL.createObjectURL(manifestBlob);
+const link = document.createElement('link');
+link.rel = 'manifest';
+link.href = manifestURL;
+document.head.appendChild(link);
 
-    function showToast(msg) {
-      toast.textContent = msg;
-      toast.style.display = "block";
-      setTimeout(() => toast.style.display = "none", 2500);
-    }
+const swCode = `
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open('scout-cache').then(c =>
+      c.addAll(['./'])
+    )
+  );
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    caches.match(e.request).then(r => r || fetch(e.request))
+  );
+});
+`;
+const swBlob = new Blob([swCode], { type: 'text/javascript' });
+navigator.serviceWorker.register(URL.createObjectURL(swBlob));
 
-    function renderPosts(category = "home") {
-      const container = document.getElementById("posts");
-      container.innerHTML = "";
-      const filtered = posts
-        .filter(p => category === "home" || p.category === category)
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+/* ---------------- MAP + POSTS ---------------- */
 
-      filtered.forEach(post => {
-        const div = document.createElement("div");
-        div.className = "post";
-        div.innerHTML = `<strong>${post.name}</strong><br>${post.message}<br><small>${new Date(post.timestamp).toLocaleString()}</small>`;
-        container.appendChild(div);
-      });
-    }
+const map = L.map('map').setView([41.2, -96.0], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap'
+}).addTo(map);
 
-    function addMapPins() {
-      posts.forEach(post => {
-        const isFresh = Date.now() - new Date(post.timestamp) < 86400000;
-        const icon = isFresh
-          ? L.divIcon({ className: "pulse-marker" })
-          : undefined;
-        L.marker([post.lat, post.lng], { icon }).addTo(map)
-          .bindPopup(`<strong>${post.name}</strong><br>${post.message}`);
-      });
-    }
+const posts = JSON.parse(localStorage.getItem('scoutPosts') || '[]');
 
-    document.getElementById("postForm").addEventListener("submit", e => {
-      e.preventDefault();
-      const org = document.getElementById("org").value.trim();
-      const message = document.getElementById("message").value.trim();
-      const category = document.getElementById("category").value;
-      if (!org || !message) return;
-      const post = {
-        name: org,
-        message,
-        category,
-        lat: map.getCenter().lat + (Math.random() - 0.5) * 0.01,
-        lng: map.getCenter().lng + (Math.random() - 0.5) * 0.01,
-        timestamp: new Date().toISOString()
-      };
-      posts.unshift(post);
-      renderPosts(document.querySelector(".tab.active").dataset.tab);
-      addMapPins();
-      showToast("Post submitted!");
-      document.getElementById("postForm").reset();
-    });
+function milesBetween(a, b) {
+  const R = 3958.8;
+  const dLat = (b.lat - a.lat) * Math.PI/180;
+  const dLon = (b.lng - a.lng) * Math.PI/180;
+  const lat1 = a.lat * Math.PI/180;
+  const lat2 = b.lat * Math.PI/180;
+  const x = Math.sin(dLat/2)**2 +
+            Math.sin(dLon/2)**2 * Math.cos(lat1) * Math.cos(lat2);
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
 
-    document.querySelectorAll(".tab").forEach(tab => {
-      tab.addEventListener("click", () => {
-        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-        tab.classList.add("active");
-        renderPosts(tab.dataset.tab);
-      });
-    });
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - ts)/1000);
+  const m = Math.floor(s/60);
+  const h = Math.floor(m/60);
+  const d = Math.floor(h/24);
+  if (d) return d + 'd ago';
+  if (h) return h + 'h ago';
+  if (m) return m + 'm ago';
+  return 'just now';
+}
 
-    renderPosts();
-    addMapPins();
-  </script>
+navigator.geolocation.getCurrentPosition(pos => {
+  const user = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+
+  posts.forEach(p => {
+    const age = Date.now() - p.time < 86400000;
+    const marker = L.circleMarker([p.lat, p.lng], {
+      radius: 8,
+      color: age ? '#7a9f79' : '#555'
+    }).addTo(map);
+    if (age) marker._path.classList.add('pulse');
+  });
+
+  renderFeed();
+});
+
+function renderFeed() {
+  const feed = document.getElementById('feed');
+  feed.innerHTML = '';
+  posts.sort((a,b)=>b.time-a.time).forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'post';
+    div.innerHTML = `
+      <div>${p.text}</div>
+      <div class="time">${timeAgo(p.time)}</div>
+    `;
+    feed.appendChild(div);
+  });
+}
+
+/* ---------------- SCOUT ---------------- */
+
+function askScout() {
+  const input = document.getElementById('scoutText');
+  const log = document.getElementById('scoutLog');
+  const q = input.value.toLowerCase();
+  if (!q) return;
+
+  log.innerHTML += `<div>🧍 ${input.value}</div>`;
+
+  let r = "Try exploring just off the highway — there’s always something unexpected.";
+  if (q.includes('near')) r = "Looking within 5–15 miles — perfect for a quick detour.";
+  if (q.includes('day')) r = "Day trips shine best around 15–35 miles from here.";
+
+  log.innerHTML += `<div>🧭 ${r}</div>`;
+  input.value = '';
+  log.scrollTop = log.scrollHeight;
+}
+</script>
+
 </body>
 </html>
