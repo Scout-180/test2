@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SCOUT™ - Just Off I-80</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
+    header { background: #2b2b2b; color: white; padding: 1rem; text-align: center; font-size: 1.5rem; }
+    nav { display: flex; flex-wrap: wrap; background: #444; }
+    nav button {
+      flex: 1; padding: 1rem; border: none; background: #444; color: white; cursor: pointer;
+    }
+    nav button.active { background: #2b2b2b; font-weight: bold; }
+    #map { height: 300px; }
+    main { padding: 1rem; }
+    .post { background: white; padding: 1rem; margin: 1rem 0; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .toast { position: fixed; bottom: 1rem; right: 1rem; background: #2b2b2b; color: white; padding: 0.75rem 1rem; border-radius: 5px; display: none; }
+    .pulse-marker {
+      width: 20px; height: 20px;
+      background: rgba(0, 200, 0, 0.8);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+      border: 2px solid white;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.5); opacity: 0.6; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+</head>
+<body>
+  <header>SCOUT™ – Just Off I-80</header>
+  <nav>
+    <button class="tab active" data-tab="home">Home</button>
+    <button class="tab" data-tab="eat">Eat & Drink</button>
+    <button class="tab" data-tab="trails">Trails & Parks</button>
+    <button class="tab" data-tab="arts">Arts & Culture</button>
+    <button class="tab" data-tab="services">Community Services</button>
+    <button class="tab" data-tab="authors">Local Authors</button>
+  </nav>
+
+  <div id="map"></div>
+
+  <main>
+    <form id="postForm">
+      <h3>Share Something</h3>
+      <input type="text" id="org" placeholder="Name of place/org" required />
+      <input type="text" id="message" placeholder="What’s happening?" required />
+      <select id="category">
+        <option value="eat">Eat & Drink</option>
+        <option value="trails">Trails & Parks</option>
+        <option value="arts">Arts & Culture</option>
+        <option value="services">Community Services</option>
+        <option value="authors">Local Authors</option>
+      </select>
+      <button type="submit">Post</button>
+    </form>
+
+    <section id="posts"></section>
+  </main>
+
+  <div class="toast" id="toast">Post submitted!</div>
+
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([41.117, -78.761], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    const listings = [
+      {
+        name: "Station Café",
+        lat: 41.1173,
+        lng: -78.7615,
+        category: "eat",
+        message: "Trout melt + live music tonight!",
+        timestamp: new Date().toISOString()
+      },
+      {
+        name: "DuBois Trailhead",
+        lat: 41.12,
+        lng: -78.75,
+        category: "trails",
+        message: "Sunrise hike this weekend!",
+        timestamp: new Date(Date.now() - 86400000 * 2).toISOString() // 2 days ago
+      }
+    ];
+
+    const posts = [...listings];
+
+    const toast = document.getElementById("toast");
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.style.display = "block";
+      setTimeout(() => toast.style.display = "none", 2500);
+    }
+
+    function renderPosts(category = "home") {
+      const container = document.getElementById("posts");
+      container.innerHTML = "";
+      const filtered = posts
+        .filter(p => category === "home" || p.category === category)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      filtered.forEach(post => {
+        const div = document.createElement("div");
+        div.className = "post";
+        div.innerHTML = `<strong>${post.name}</strong><br>${post.message}<br><small>${new Date(post.timestamp).toLocaleString()}</small>`;
+        container.appendChild(div);
+      });
+    }
+
+    function addMapPins() {
+      posts.forEach(post => {
+        const isFresh = Date.now() - new Date(post.timestamp) < 86400000;
+        const icon = isFresh
+          ? L.divIcon({ className: "pulse-marker" })
+          : undefined;
+        L.marker([post.lat, post.lng], { icon }).addTo(map)
+          .bindPopup(`<strong>${post.name}</strong><br>${post.message}`);
+      });
+    }
+
+    document.getElementById("postForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const org = document.getElementById("org").value.trim();
+      const message = document.getElementById("message").value.trim();
+      const category = document.getElementById("category").value;
+      if (!org || !message) return;
+      const post = {
+        name: org,
+        message,
+        category,
+        lat: map.getCenter().lat + (Math.random() - 0.5) * 0.01,
+        lng: map.getCenter().lng + (Math.random() - 0.5) * 0.01,
+        timestamp: new Date().toISOString()
+      };
+      posts.unshift(post);
+      renderPosts(document.querySelector(".tab.active").dataset.tab);
+      addMapPins();
+      showToast("Post submitted!");
+      document.getElementById("postForm").reset();
+    });
+
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        renderPosts(tab.dataset.tab);
+      });
+    });
+
+    renderPosts();
+    addMapPins();
+  </script>
+</body>
+</html>
